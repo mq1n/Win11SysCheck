@@ -61,6 +61,7 @@ int main(int, char* argv[])
 	if (!hNtdll)
 	{
 		std::cerr << "LoadLibraryA(ntdll) failed with error: " << GetLastError() << std::endl;
+		std::system("PAUSE");
 		return EXIT_FAILURE;
 	}
 
@@ -69,6 +70,7 @@ int main(int, char* argv[])
 	if (!NtQuerySystemInformation)
 	{
 		std::cerr << "GetProcAddress(NtQuerySystemInformation) failed with error: " << GetLastError() << std::endl;
+		std::system("PAUSE");
 		return EXIT_FAILURE;
 	}
 
@@ -77,6 +79,7 @@ int main(int, char* argv[])
 	if (!RtlGetVersion)
 	{
 		std::cerr << "GetProcAddress(RtlGetVersion) failed with error: " << GetLastError() << std::endl;
+		std::system("PAUSE");
 		return EXIT_FAILURE;
 	}
 
@@ -89,6 +92,7 @@ int main(int, char* argv[])
 		if (ntStatus != STATUS_SUCCESS)
 		{
 			std::cerr << "RtlGetVersion failed with status: " << std::hex << ntStatus << std::endl;
+			std::system("PAUSE");
 			return EXIT_FAILURE;
 		}		
 
@@ -98,6 +102,7 @@ int main(int, char* argv[])
 		if (!GetProductInfo(osVerEx.dwMajorVersion, osVerEx.dwMinorVersion, 0, 0, &dwProductType))
 		{
 			std::cerr << "GetProductInfo failed with error: " << GetLastError() << std::endl;
+			std::system("PAUSE");
 			return EXIT_FAILURE;			
 		}
 
@@ -106,6 +111,7 @@ int main(int, char* argv[])
 		if (dwProductType == PRODUCT_CLOUD || dwProductType == PRODUCT_CLOUDN)
 		{
 			std::cerr << "SMode does not supported!" << std::endl;
+			std::system("PAUSE");
 			return EXIT_FAILURE;			
 		}
 
@@ -120,6 +126,7 @@ int main(int, char* argv[])
 		if (!dwActiveProcessorCount)
 		{
 			std::cerr << "Active CPU does not exist in your system, GetActiveProcessorCount failed with error: " << GetLastError() << std::endl;
+			std::system("PAUSE");
 			return EXIT_FAILURE;
 		}
 
@@ -129,6 +136,7 @@ int main(int, char* argv[])
 		if (!hProcHeap)
 		{
 			std::cerr << "GetProcessHeap failed with error: " << GetLastError() << std::endl;
+			std::system("PAUSE");
 			return EXIT_FAILURE;
 		}
 
@@ -140,6 +148,7 @@ int main(int, char* argv[])
 		if (sysInfo.wProcessorArchitecture != PROCESSOR_ARCHITECTURE_AMD64 && sysInfo.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_IA64)
 		{
 			std::cerr << "System processor arch must be x64!" << std::endl;
+			std::system("PAUSE");
 			return EXIT_FAILURE;
 		}
 
@@ -148,6 +157,7 @@ int main(int, char* argv[])
 		if (sysInfo.dwNumberOfProcessors < 2)
 		{
 			std::cerr << "System processor count: " << sysInfo.dwNumberOfProcessors << " is less than minimum requirement!" << std::endl;
+			std::system("PAUSE");
 			return EXIT_FAILURE;
 		}
 
@@ -157,6 +167,7 @@ int main(int, char* argv[])
 		if (!lpBuffer)
 		{
 			std::cerr << "HeapAlloc(" << ulBufferSize << " bytes) failed with error: " << GetLastError() << std::endl;
+			std::system("PAUSE");
 			return EXIT_FAILURE;
 		}
 
@@ -165,6 +176,7 @@ int main(int, char* argv[])
 		{
 			HeapFree(hProcHeap, 0, lpBuffer);
 			std::cerr << "CallNtPowerInformation failed with status: " << lStatus << std::endl;
+			std::system("PAUSE");
 			return EXIT_FAILURE;
 		}
 
@@ -172,7 +184,7 @@ int main(int, char* argv[])
 		for (size_t i = 0; i < sysInfo.dwNumberOfProcessors; ++i)
 		{
 			const auto lpCurrProcessorInfo = *(lpBuffer + i);
-			std::cout << "\tProcessor: " << lpCurrProcessorInfo.Number << " Speed: " << lpCurrProcessorInfo.CurrentMhz << std::endl;
+			std::cout << "\tProcessor: " << lpCurrProcessorInfo.Number + 1 << " Speed: " << lpCurrProcessorInfo.CurrentMhz << std::endl;
 			if (lpCurrProcessorInfo.CurrentMhz >= 1000)
 			{
 				nSpeedCheckCounter++;
@@ -183,6 +195,7 @@ int main(int, char* argv[])
 		{
 			HeapFree(hProcHeap, 0, lpBuffer);
 			std::cerr << "System processor speed is less than minimum requirement!" << std::endl;
+			std::system("PAUSE");
 			return EXIT_FAILURE;
 		}
 
@@ -198,6 +211,7 @@ int main(int, char* argv[])
 		if (!GetPhysicallyInstalledSystemMemory(&ullTotalyMemory))
 		{
 			std::cerr << "GetPhysicallyInstalledSystemMemory failed with error: " << GetLastError() << std::endl;
+			std::system("PAUSE");
 			return EXIT_FAILURE;
 		}
 
@@ -206,6 +220,7 @@ int main(int, char* argv[])
 		if (ullTotalyMemory <= 4096000)
 		{
 			std::cerr << "RAM capacity is less than minimum requirement!" << std::endl;
+			std::system("PAUSE");
 			return EXIT_FAILURE;
 		}
 
@@ -221,6 +236,7 @@ int main(int, char* argv[])
 		if (!nWinDirLength)
 		{
 			std::cerr << "GetSystemWindowsDirectoryA failed with error: " << GetLastError() << std::endl;
+			std::system("PAUSE");
 			return EXIT_FAILURE;
 		}
 
@@ -232,6 +248,7 @@ int main(int, char* argv[])
 		if (!GetDiskFreeSpaceExA(c_stTargetDev.c_str(), nullptr, &uiTotalNumberOfBytes, nullptr))
 		{
 			std::cerr << "GetDiskFreeSpaceExA failed with error: " << GetLastError() << std::endl;
+			std::system("PAUSE");
 			return EXIT_FAILURE;
 		}
 
@@ -240,6 +257,7 @@ int main(int, char* argv[])
 		if (c_dwFreeSpaceAsGB < 64)
 		{
 			std::cerr << "Disk capacity is less than minimum requirement!" << std::endl;
+			std::system("PAUSE");
 			return EXIT_FAILURE;
 		}
 
@@ -254,6 +272,7 @@ int main(int, char* argv[])
 		if (!hDesktop)
 		{
 			std::cerr << "GetDesktopWindow failed with error: " << GetLastError() << std::endl;
+			std::system("PAUSE");
 			return EXIT_FAILURE;
 		}
 
@@ -261,6 +280,7 @@ int main(int, char* argv[])
 		if (!GetWindowRect(hDesktop, &rcDesktop))
 		{
 			std::cerr << "GetWindowRect failed with error: " << GetLastError() << std::endl;
+			std::system("PAUSE");
 			return EXIT_FAILURE;
 		}
 
@@ -269,6 +289,7 @@ int main(int, char* argv[])
 		if (rcDesktop.right < 1366 || rcDesktop.bottom < 768)
 		{
 			std::cerr << "Desktop resolution is less than minimum requirement!" << std::endl;
+			std::system("PAUSE");
 			return EXIT_FAILURE;
 		}
 
@@ -285,6 +306,7 @@ int main(int, char* argv[])
 		if (ntStatus != STATUS_SUCCESS)
 		{
 			std::cerr << "NtQuerySystemInformation(SystemBootEnvironmentInformation) failed with status: " << std::hex << ntStatus << std::endl;
+			std::system("PAUSE");
 			return EXIT_FAILURE;
 		}
 
@@ -293,6 +315,7 @@ int main(int, char* argv[])
 		if (sbei.FirmwareType != FirmwareTypeUefi)
 		{
 			std::cerr << "Boot firmware: " << sbei.FirmwareType << " is not allowed!" << std::endl;
+			std::system("PAUSE");
 			return EXIT_FAILURE;
 		}
 
@@ -309,6 +332,7 @@ int main(int, char* argv[])
 		if (ntStatus != STATUS_SUCCESS)
 		{
 			std::cerr << "NtQuerySystemInformation(SystemSecureBootInformation) failed with status: " << std::hex << ntStatus << std::endl;
+			std::system("PAUSE");
 			return EXIT_FAILURE;
 		}
 
@@ -317,6 +341,7 @@ int main(int, char* argv[])
 		if (!ssbi.SecureBootCapable || !ssbi.SecureBootEnabled)
 		{
 			std::cerr << "Secure boot must be capable and enabled!" << std::endl;
+			std::system("PAUSE");
 			return EXIT_FAILURE;
 		}
 
@@ -332,12 +357,14 @@ int main(int, char* argv[])
 		if (nTpmRet != TBS_SUCCESS)
 		{
 			std::cerr << "Tbsi_GetDeviceInfo failed with status: " << nTpmRet << std::endl;
+			std::system("PAUSE");
 			return EXIT_FAILURE;
 		}
 
 		if (tpmDevInfo.tpmVersion != 2)
 		{
 			std::cerr << "TPM version: " << tpmDevInfo.tpmVersion << " is less than minimum requirement!" << std::endl;
+			std::system("PAUSE");
 			return EXIT_FAILURE;
 		}
 
@@ -351,6 +378,7 @@ int main(int, char* argv[])
 		if (!LoadLibraryA("d3d12.dll"))
 		{
 			std::cerr << "DirectX 12 compability check failed! Module load error: " << GetLastError() << std::endl;
+			std::system("PAUSE");
 			return EXIT_FAILURE;
 		}
 
@@ -371,6 +399,7 @@ int main(int, char* argv[])
 		if (nDxdiagExitCode)
 		{
 			std::cerr << "dxdiag process execute failed with exit code: " << nDxdiagExitCode << std::endl;
+			std::system("PAUSE");
 			return EXIT_FAILURE;
 		}
 
@@ -378,12 +407,14 @@ int main(int, char* argv[])
 		if (c_stFileBuffer.empty())
 		{
 			std::cerr << "dxdiag output file read failed with " << errno << std::endl;
+			std::system("PAUSE");
 			return EXIT_FAILURE;
 		}
 
 		if (c_stFileBuffer.find("Driver Model: WDDM 2") == std::string::npos)
 		{
 			std::cerr << "WDDM 2 is not found in dxdiag config!" << std::endl;
+			std::system("PAUSE");
 			return EXIT_FAILURE;
 		}
 
@@ -391,5 +422,6 @@ int main(int, char* argv[])
 	}
 
 	std::cout << "All checks passed! Your system can be upgradable to Windows 11" << std::endl;
+	std::system("PAUSE");
 	return EXIT_SUCCESS;
 }
