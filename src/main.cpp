@@ -146,7 +146,9 @@ int main(int, char* argv[])
 
 		std::cout << "\tProcessor arch: " << sysInfo.wProcessorArchitecture << std::endl;
 
-		if (sysInfo.wProcessorArchitecture != PROCESSOR_ARCHITECTURE_AMD64 && sysInfo.wProcessorArchitecture != PROCESSOR_ARCHITECTURE_IA64)
+		if (sysInfo.wProcessorArchitecture != PROCESSOR_ARCHITECTURE_AMD64 &&
+			sysInfo.wProcessorArchitecture != PROCESSOR_ARCHITECTURE_IA64  &&
+			sysInfo.wProcessorArchitecture != PROCESSOR_ARCHITECTURE_ARM64)
 		{
 			std::cerr << "System processor arch must be x64!" << std::endl;
 			std::system("PAUSE");
