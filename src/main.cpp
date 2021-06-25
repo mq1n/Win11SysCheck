@@ -1,6 +1,7 @@
 #include <Windows.h>
 #include <powerbase.h>
 #include <tbs.h>
+#include <intrin.h>
 #include <string>
 #include <iostream>
 #include <fstream>
@@ -118,7 +119,7 @@ int main(int, char* argv[])
 		std::cout << "S Mode check passed!" << std::endl;
 	}
 
-	// 1 Ghz, 64-bit, dual core CPU
+	// 1 Ghz, 64-bit, dual core, known CPU
 	{
 		std::cout << "CPU checking..." << std::endl;
 
@@ -190,16 +191,65 @@ int main(int, char* argv[])
 				nSpeedCheckCounter++;
 			}
 		}
+		HeapFree(hProcHeap, 0, lpBuffer);
 
 		if (nSpeedCheckCounter < 2)
 		{
-			HeapFree(hProcHeap, 0, lpBuffer);
 			std::cerr << "System processor speed is less than minimum requirement!" << std::endl;
 			std::system("PAUSE");
 			return EXIT_FAILURE;
 		}
 
-		HeapFree(hProcHeap, 0, lpBuffer);
+		const auto dwRevision = sysInfo.wProcessorRevision >> 8;
+		const auto byRevision = LOBYTE(sysInfo.wProcessorRevision);
+
+		int CPUIDINF[4]{ 0 };
+		__cpuid(CPUIDINF, 0);
+
+		std::string stVendor;
+		stVendor += std::string(reinterpret_cast<const char*>(&CPUIDINF[1]), sizeof(CPUIDINF[1]));
+		stVendor += std::string(reinterpret_cast<const char*>(&CPUIDINF[3]), sizeof(CPUIDINF[3]));
+		stVendor += std::string(reinterpret_cast<const char*>(&CPUIDINF[2]), sizeof(CPUIDINF[2]));
+
+		std::cout << "\tProcessor level: " << sysInfo.wProcessorLevel << " revision: " << dwRevision << " " << byRevision << " vendor: " << stVendor << std::endl;
+
+		// Reversed checks from Windows's tool
+		if (stVendor == "AuthenticAMD")
+		{
+			if (sysInfo.wProcessorLevel < 0x17 || sysInfo.wProcessorLevel == 23 && !((dwRevision - 1) & 0xFFFFFFEF))
+			{
+				std::cerr << "Unsupported AMD CPU detected!" << std::endl;
+				std::system("PAUSE");
+				return EXIT_FAILURE;
+			}
+		}
+		else if (stVendor == "GenuineIntel")
+		{
+			if (sysInfo.wProcessorLevel == 6)
+			{
+				if ((dwRevision < 0x5F && dwRevision != 85) ||
+					(dwRevision == 142 && byRevision == 9) ||
+					(dwRevision == 158 && byRevision == 9))
+				{
+					std::cerr << "Unsupported Intel CPU detected!" << std::endl;
+					std::system("PAUSE");
+					return EXIT_FAILURE;
+				}
+			}
+		}
+		else if (stVendor.find("Qualcomm") == std::string::npos)
+		{
+			std::cerr << "Unknown CPU vendor detected!" << std::endl;
+			std::system("PAUSE");
+			return EXIT_FAILURE;
+		}
+		else if (!IsProcessorFeaturePresent(PF_ARM_V81_ATOMIC_INSTRUCTIONS_AVAILABLE))
+		{
+			std::cerr << "Unsupported Qualcomm CPU detected!" << std::endl;
+			std::system("PAUSE");
+			return EXIT_FAILURE;
+		}
+
 		std::cout << "CPU check passed!" << std::endl;
 	}
 
