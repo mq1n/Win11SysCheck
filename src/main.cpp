@@ -72,6 +72,46 @@ int main(int, char* argv[])
 		return EXIT_FAILURE;
 	}
 
+	typedef NTSTATUS(NTAPI* TRtlGetVersion)(LPOSVERSIONINFOEX OsVersionInfoEx);
+	const auto RtlGetVersion = reinterpret_cast<TRtlGetVersion>(GetProcAddress(hNtdll, "RtlGetVersion"));
+	if (!RtlGetVersion)
+	{
+		std::cerr << "GetProcAddress(RtlGetVersion) failed with error: " << GetLastError() << std::endl;
+		return EXIT_FAILURE;
+	}
+
+	// S Mode
+	{
+		std::cout << "S Mode checking..." << std::endl;
+
+		OSVERSIONINFOEX osVerEx{ 0 };
+		const auto ntStatus = RtlGetVersion(&osVerEx);
+		if (ntStatus != STATUS_SUCCESS)
+		{
+			std::cerr << "RtlGetVersion failed with status: " << std::hex << ntStatus << std::endl;
+			return EXIT_FAILURE;
+		}		
+
+		std::cout << "\tVersion: " << osVerEx.dwMajorVersion << "." << osVerEx.dwMinorVersion << std::endl;
+
+		DWORD dwProductType = 0;
+		if (!GetProductInfo(osVerEx.dwMajorVersion, osVerEx.dwMinorVersion, 0, 0, &dwProductType))
+		{
+			std::cerr << "GetProductInfo failed with error: " << GetLastError() << std::endl;
+			return EXIT_FAILURE;			
+		}
+
+		std::cout << "\tProduct type: " << dwProductType << std::endl;
+
+		if (dwProductType == PRODUCT_CLOUD || dwProductType == PRODUCT_CLOUDN)
+		{
+			std::cerr << "SMode does not supported!" << std::endl;
+			return EXIT_FAILURE;			
+		}
+
+		std::cout << "S Mode check passed!" << std::endl;
+	}
+
 	// 1 Ghz, 64-bit, dual core CPU
 	{
 		std::cout << "CPU checking..." << std::endl;
@@ -112,15 +152,15 @@ int main(int, char* argv[])
 		}
 
 		PROCESSOR_POWER_INFORMATION processorPowerInfo{ 0 };
-		const auto dwBufferSize = sizeof(processorPowerInfo) * sysInfo.dwNumberOfProcessors;
-		const auto lpBuffer = reinterpret_cast<PROCESSOR_POWER_INFORMATION*>(HeapAlloc(hProcHeap, HEAP_ZERO_MEMORY, dwBufferSize));
+		const ULONG ulBufferSize = sizeof(processorPowerInfo) * sysInfo.dwNumberOfProcessors;
+		const auto lpBuffer = reinterpret_cast<PROCESSOR_POWER_INFORMATION*>(HeapAlloc(hProcHeap, HEAP_ZERO_MEMORY, ulBufferSize));
 		if (!lpBuffer)
 		{
-			std::cerr << "HeapAlloc(" << dwBufferSize << " bytes) failed with error: " << GetLastError() << std::endl;
+			std::cerr << "HeapAlloc(" << ulBufferSize << " bytes) failed with error: " << GetLastError() << std::endl;
 			return EXIT_FAILURE;
 		}
 
-		const auto lStatus = CallNtPowerInformation(ProcessorInformation, nullptr, 0, lpBuffer, dwBufferSize);
+		const auto lStatus = CallNtPowerInformation(ProcessorInformation, nullptr, 0, lpBuffer, ulBufferSize);
 		if (lStatus != STATUS_SUCCESS)
 		{
 			HeapFree(hProcHeap, 0, lpBuffer);
@@ -244,7 +284,7 @@ int main(int, char* argv[])
 		const auto ntStatus = NtQuerySystemInformation(SystemBootEnvironmentInformation, &sbei, sizeof(sbei), &cbSize);
 		if (ntStatus != STATUS_SUCCESS)
 		{
-			std::cerr << "NtQuerySystemInformation(SystemBootEnvironmentInformation) failed with status: " << ntStatus << std::endl;
+			std::cerr << "NtQuerySystemInformation(SystemBootEnvironmentInformation) failed with status: " << std::hex << ntStatus << std::endl;
 			return EXIT_FAILURE;
 		}
 
@@ -268,7 +308,7 @@ int main(int, char* argv[])
 		const auto ntStatus = NtQuerySystemInformation(SystemSecureBootInformation, &ssbi, sizeof(ssbi), &cbSize);
 		if (ntStatus != STATUS_SUCCESS)
 		{
-			std::cerr << "NtQuerySystemInformation(SystemSecureBootInformation) failed with status: " << ntStatus << std::endl;
+			std::cerr << "NtQuerySystemInformation(SystemSecureBootInformation) failed with status: " << std::hex << ntStatus << std::endl;
 			return EXIT_FAILURE;
 		}
 
