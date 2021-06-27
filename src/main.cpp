@@ -99,7 +99,7 @@ int main(int, char* argv[])
 			std::cerr << "RtlGetVersion failed with status: " << std::hex << ntStatus << std::endl;
 			std::system("PAUSE");
 			return EXIT_FAILURE;
-		}		
+		}
 
 		std::cout << "\tVersion: " << osVerEx.dwMajorVersion << "." << osVerEx.dwMinorVersion << std::endl;
 
@@ -108,7 +108,7 @@ int main(int, char* argv[])
 		{
 			std::cerr << "GetProductInfo failed with error: " << GetLastError() << std::endl;
 			std::system("PAUSE");
-			return EXIT_FAILURE;			
+			return EXIT_FAILURE;
 		}
 
 		std::cout << "\tProduct type: " << dwProductType << std::endl;
@@ -117,7 +117,7 @@ int main(int, char* argv[])
 		{
 			std::cerr << "SMode does not supported!" << std::endl;
 			std::system("PAUSE");
-			return EXIT_FAILURE;			
+			return EXIT_FAILURE;
 		}
 
 		std::cout << "S Mode check passed!" << std::endl;
@@ -151,7 +151,7 @@ int main(int, char* argv[])
 		std::cout << "\tProcessor arch: " << sysInfo.wProcessorArchitecture << std::endl;
 
 		if (sysInfo.wProcessorArchitecture != PROCESSOR_ARCHITECTURE_AMD64 &&
-			sysInfo.wProcessorArchitecture != PROCESSOR_ARCHITECTURE_IA64  &&
+			sysInfo.wProcessorArchitecture != PROCESSOR_ARCHITECTURE_IA64 &&
 			sysInfo.wProcessorArchitecture != PROCESSOR_ARCHITECTURE_ARM64)
 		{
 			std::cerr << "System processor arch must be x64!" << std::endl;
@@ -324,31 +324,54 @@ int main(int, char* argv[])
 	{
 		std::cout << "Resolution checking..." << std::endl;
 
-		const auto hDesktop = GetDesktopWindow();
-		if (!hDesktop)
+		// Enum monitors
+		const auto hDC = GetDC(nullptr);
+		if (!hDC)
 		{
-			std::cerr << "GetDesktopWindow failed with error: " << GetLastError() << std::endl;
+			std::cerr << "GetDC failed with error: " << GetLastError() << std::endl;
 			std::system("PAUSE");
 			return EXIT_FAILURE;
 		}
 
-		RECT rcDesktop{ 0 };
-		if (!GetWindowRect(hDesktop, &rcDesktop))
+		BOOL bHasAvailableMonitor = FALSE;
+		auto OnMonitorEnum = [](HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMonitor, LPARAM dwData) -> BOOL {
+			static auto s_nIdx = 0;
+			const auto pbHasAvailableMonitor = reinterpret_cast<BOOL*>(dwData);
+
+			s_nIdx++;
+
+			MONITORINFO monInfo{ 0 };
+			monInfo.cbSize = sizeof(monInfo);
+
+			if (!GetMonitorInfoA(hMonitor, &monInfo))
+			{
+				std::cerr << "GetMonitorInfoA(" << s_nIdx << ") failed with error : " << GetLastError() << std::endl;
+				return TRUE;
+			}
+
+			std::cout <<
+				"\tMonitor: " << s_nIdx <<
+				" Primary: " << bool(monInfo.dwFlags & MONITORINFOF_PRIMARY) <<
+				" Resolution: " << monInfo.rcMonitor.right << "x" << monInfo.rcMonitor.bottom <<
+				std::endl;
+
+			if (monInfo.rcMonitor.right > 1366 && monInfo.rcMonitor.bottom > 768)
+			{
+				*pbHasAvailableMonitor = TRUE;
+				return TRUE;
+			}
+
+			return TRUE;
+		};
+
+		if (!EnumDisplayMonitors(hDC, nullptr, OnMonitorEnum, reinterpret_cast<LPARAM>(&bHasAvailableMonitor)))
 		{
-			std::cerr << "GetWindowRect failed with error: " << GetLastError() << std::endl;
+			std::cerr << "EnumDisplayMonitors failed with error: " << GetLastError() << std::endl;
 			std::system("PAUSE");
 			return EXIT_FAILURE;
 		}
 
-		std::cout << "\tResolution: " << rcDesktop.right << "x" << rcDesktop.bottom << std::endl;
-
-		if (rcDesktop.right < 1366 || rcDesktop.bottom < 768)
-		{
-			std::cerr << "Desktop resolution is less than minimum requirement!" << std::endl;
-			std::system("PAUSE");
-			return EXIT_FAILURE;
-		}
-
+		ReleaseDC(nullptr, hDC);
 		std::cout << "Resolution check passed!" << std::endl;
 	}
 
