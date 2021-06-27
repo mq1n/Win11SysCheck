@@ -15,6 +15,7 @@
 #define STATUS_SUCCESS ((NTSTATUS)0x00000000L)
 #define SystemBootEnvironmentInformation 90
 #define SystemSecureBootInformation 145
+#define TBS_E_TPM_NOT_FOUND 0x8028400F
 
 typedef struct _SYSTEM_BOOT_ENVIRONMENT_INFORMATION
 {
@@ -389,6 +390,15 @@ int main(int, char* argv[])
 
 	// UEFI
 	{
+		const auto GetFirmwareName = [](const uint8_t type) -> std::string {
+			if (type == FirmwareTypeBios)
+				return "Legacy/Bios";
+			else if (type == FirmwareTypeUefi)
+				return "UEFI";
+			else
+				return "Unknown: " + std::to_string(type);
+		};
+
 		std::cout << "Firmware checking..." << std::endl;
 
 		ULONG cbSize = 0;
@@ -405,7 +415,7 @@ int main(int, char* argv[])
 
 		if (sbei.FirmwareType != FirmwareTypeUefi)
 		{
-			std::cerr << "Boot firmware: " << sbei.FirmwareType << " is not allowed!" << std::endl;
+			std::cerr << "Boot firmware: " << GetFirmwareName(sbei.FirmwareType) << " is not allowed!" << std::endl;
 			std::system("PAUSE");
 			return EXIT_FAILURE;
 		}
@@ -445,7 +455,13 @@ int main(int, char* argv[])
 
 		TPM_DEVICE_INFO tpmDevInfo{ 0 };
 		const auto nTpmRet = Tbsi_GetDeviceInfo(sizeof(tpmDevInfo), &tpmDevInfo);
-		if (nTpmRet != TBS_SUCCESS)
+		if (nTpmRet == TBS_E_TPM_NOT_FOUND)
+		{
+			std::cerr << "TPM module does not exist or activated in system!" << std::endl;
+			std::system("PAUSE");
+			return EXIT_FAILURE;
+		}
+		else if (nTpmRet != TBS_SUCCESS)
 		{
 			std::cerr << "Tbsi_GetDeviceInfo failed with status: " << nTpmRet << std::endl;
 			std::system("PAUSE");
