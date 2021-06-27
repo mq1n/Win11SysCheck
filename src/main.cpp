@@ -3,6 +3,7 @@
 #include <WinInet.h>
 #include <tbs.h>
 #include <intrin.h>
+#include <d3d11.h>
 #include <string>
 #include <iostream>
 #include <fstream>
@@ -465,9 +466,51 @@ int main(int, char* argv[])
 	{
 		std::cout << "DirectX checking..." << std::endl;
 
-		if (!LoadLibraryA("d3d12.dll"))
+		typedef HRESULT(WINAPI* TD3D11CreateDevice)(
+			IDXGIAdapter* adapter, D3D_DRIVER_TYPE driver_type, HMODULE software, UINT flags, const D3D_FEATURE_LEVEL* feature_levels,
+			UINT num_feature_levels, UINT sdk_version, ID3D11Device** device, D3D_FEATURE_LEVEL* feature_level,
+			ID3D11DeviceContext** immediate_context
+		);
+
+		const auto hD3D11 = LoadLibraryA("d3d11.dll");
+		if (!hD3D11)
 		{
-			std::cerr << "DirectX 12 compability check failed! Module load error: " << GetLastError() << std::endl;
+			std::cerr << "LoadLibraryA(d3d11) failed with error: " << GetLastError() << std::endl;
+			std::system("PAUSE");
+			return EXIT_FAILURE;
+		}
+
+		const auto D3D11CreateDevice = reinterpret_cast<TD3D11CreateDevice>(GetProcAddress(hD3D11, "D3D11CreateDevice"));
+		if (!D3D11CreateDevice)
+		{
+			std::cerr << "GetProcAddress(D3D11CreateDevice) failed with error: " << GetLastError() << std::endl;
+			std::system("PAUSE");
+			return EXIT_FAILURE;
+		}
+
+		static const D3D_FEATURE_LEVEL d3d_feature_levels[] = {
+			D3D_FEATURE_LEVEL_12_1,
+			D3D_FEATURE_LEVEL_12_0,
+			D3D_FEATURE_LEVEL_11_1,
+			D3D_FEATURE_LEVEL_11_0
+		};
+
+		D3D_FEATURE_LEVEL d3dFeatureLevel{};
+		ID3D11Device* pD3d11Device = nullptr;
+		ID3D11DeviceContext* pD3d11DeviceCtx = nullptr;
+		const auto hResult = D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, 0, d3d_feature_levels, _countof(d3d_feature_levels),
+			D3D11_SDK_VERSION, &pD3d11Device, &d3dFeatureLevel, &pD3d11DeviceCtx
+		);
+		if (FAILED(hResult))
+		{
+			std::cerr << "D3D11CreateDevice failed with status: " << std::hex << hResult << std::endl;
+			std::system("PAUSE");
+			return EXIT_FAILURE;
+		}
+
+		if (d3dFeatureLevel < D3D_FEATURE_LEVEL_12_0)
+		{
+			std::cerr << "DirectX 12 compability check failed! Feature level: " << std::to_string(d3dFeatureLevel) << std::endl;
 			std::system("PAUSE");
 			return EXIT_FAILURE;
 		}
