@@ -1,5 +1,6 @@
 #include <Windows.h>
 #include <powerbase.h>
+#include <WinInet.h>
 #include <tbs.h>
 #include <intrin.h>
 #include <string>
@@ -501,6 +502,29 @@ int main(int, char* argv[])
 		}
 
 		std::cout << "WDDM check passed!" << std::endl;
+	}
+
+	// Internet connection
+	{
+		std::cout << "Internet connection checking..." << std::endl;
+
+		DWORD dwFlags = 0;
+		if (!InternetGetConnectedState(&dwFlags, 0))
+		{
+			std::cerr << "InternetGetConnectedState failed with error: " << GetLastError() << std::endl;
+			std::system("PAUSE");
+			return EXIT_FAILURE;
+		}
+
+		const auto dwTestConnectionRet = InternetAttemptConnect(0);
+		if (dwTestConnectionRet != ERROR_SUCCESS)
+		{
+			std::cerr << "InternetAttemptConnect failed with error: " << GetLastError() << std::endl;
+			std::system("PAUSE");
+			return EXIT_FAILURE;
+		}
+
+		std::cout << "Internet connection check passed!" << std::endl;
 	}
 
 	std::cout << "All checks passed! Your system can be upgradable to Windows 11" << std::endl;
