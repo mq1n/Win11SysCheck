@@ -30,3 +30,7 @@
 *.exe
 *.out
 *.app
+
+# Project folders
+/.vs_proj
+/build
