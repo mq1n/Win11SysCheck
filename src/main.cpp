@@ -213,7 +213,7 @@ int main(int, char* argv[])
 		stVendor += std::string(reinterpret_cast<const char*>(&CPUIDINF[3]), sizeof(CPUIDINF[3]));
 		stVendor += std::string(reinterpret_cast<const char*>(&CPUIDINF[2]), sizeof(CPUIDINF[2]));
 
-		std::cout << "\tProcessor level: " << sysInfo.wProcessorLevel << " revision: " << dwRevision << " " << byRevision << " vendor: " << stVendor << std::endl;
+		std::cout << "\tProcessor level: " << sysInfo.wProcessorLevel << " revision: " << dwRevision << " " << std::to_string(byRevision) << " vendor: " << stVendor << std::endl;
 
 		// Reversed checks from Windows's tool
 		if (stVendor == "AuthenticAMD")
