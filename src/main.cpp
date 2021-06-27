@@ -375,6 +375,13 @@ int main(int, char* argv[])
 			return EXIT_FAILURE;
 		}
 
+		if (!bHasAvailableMonitor)
+		{
+			std::cerr << "Any available display device could not detected!" << std::endl;
+			std::system("PAUSE");
+			return EXIT_FAILURE;
+		}
+
 		ReleaseDC(nullptr, hDC);
 		std::cout << "Resolution check passed!" << std::endl;
 	}
