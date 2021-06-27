@@ -349,13 +349,16 @@ int main(int, char* argv[])
 				return TRUE;
 			}
 
+			const auto nColorDepth = GetDeviceCaps(hdcMonitor, BITSPIXEL) * GetDeviceCaps(hdcMonitor, PLANES);
+
 			std::cout <<
 				"\tMonitor: " << s_nIdx <<
 				" Primary: " << bool(monInfo.dwFlags & MONITORINFOF_PRIMARY) <<
+				" Color depth: " << nColorDepth <<
 				" Resolution: " << monInfo.rcMonitor.right << "x" << monInfo.rcMonitor.bottom <<
 				std::endl;
 
-			if (monInfo.rcMonitor.right > 1366 && monInfo.rcMonitor.bottom > 768)
+			if (monInfo.rcMonitor.right > 1366 && monInfo.rcMonitor.bottom > 768 && nColorDepth >= 8)
 			{
 				*pbHasAvailableMonitor = TRUE;
 				return TRUE;
