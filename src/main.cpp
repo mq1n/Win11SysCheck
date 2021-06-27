@@ -544,9 +544,10 @@ int main(int, char* argv[])
 			return EXIT_FAILURE;
 		}
 
-		if (c_stFileBuffer.find("Driver Model: WDDM 2") == std::string::npos)
+		if (c_stFileBuffer.find("Driver Model: WDDM 2") == std::string::npos &&
+			c_stFileBuffer.find("Driver Model: WDDM 3") == std::string::npos)
 		{
-			std::cerr << "WDDM 2 is not found in dxdiag config!" << std::endl;
+			std::cerr << "WDDM 2/3 is not found in dxdiag config!" << std::endl;
 			std::system("PAUSE");
 			return EXIT_FAILURE;
 		}
