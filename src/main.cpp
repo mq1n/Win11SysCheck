@@ -421,9 +421,9 @@ int main(int, char* argv[])
 
 		std::cout << "\tSecure boot capable: " << std::to_string(ssbi.SecureBootCapable) << " Enabled: " << std::to_string(ssbi.SecureBootEnabled) << std::endl;
 
-		if (!ssbi.SecureBootCapable || !ssbi.SecureBootEnabled)
+		if (!ssbi.SecureBootCapable)
 		{
-			std::cerr << "Secure boot must be capable and enabled!" << std::endl;
+			std::cerr << "Secure boot must be capable!" << std::endl;
 			std::system("PAUSE");
 			return EXIT_FAILURE;
 		}
