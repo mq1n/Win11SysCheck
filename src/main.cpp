@@ -6,6 +6,10 @@
 #include <iostream>
 #include <fstream>
 
+#ifdef _M_IX86
+#error "architecture unsupported"
+#endif
+
 #define STATUS_SUCCESS ((NTSTATUS)0x00000000L)
 #define SystemBootEnvironmentInformation 90
 #define SystemSecureBootInformation 145
