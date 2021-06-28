@@ -202,8 +202,8 @@ int main(int, char* argv[])
 		for (size_t i = 0; i < sysInfo.dwNumberOfProcessors; ++i)
 		{
 			const auto lpCurrProcessorInfo = *(reinterpret_cast<PROCESSOR_POWER_INFORMATION*>(reinterpret_cast<LPBYTE>(lpBuffer) + (sizeof(processorPowerInfo) * i)));
-			std::cout << "\tProcessor: " << lpCurrProcessorInfo.Number + 1 << " Speed: " << lpCurrProcessorInfo.CurrentMhz << std::endl;
-			if (lpCurrProcessorInfo.CurrentMhz >= 1000)
+			std::cout << "\tProcessor: " << lpCurrProcessorInfo.Number + 1 << " Speed: " << lpCurrProcessorInfo.MaxMhz << std::endl;
+			if (lpCurrProcessorInfo.MaxMhz >= 1000)
 			{
 				nSpeedCheckCounter++;
 			}
