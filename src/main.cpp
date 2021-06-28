@@ -1,63 +1,71 @@
-#include <Windows.h>
-#include <powerbase.h>
-#include <WinInet.h>
-#include <tbs.h>
-#include <intrin.h>
-#include <d3d11.h>
-#include <string>
-#include <iostream>
-#include <fstream>
-
+#include "../include/main.h"
 #ifdef _M_IX86
 #error "architecture unsupported"
 #endif
 
-#define STATUS_SUCCESS ((NTSTATUS)0x00000000L)
-#define SystemBootEnvironmentInformation 90
-#define SystemSecureBootInformation 145
-#define TBS_E_TPM_NOT_FOUND 0x8028400F
-
-typedef struct _SYSTEM_BOOT_ENVIRONMENT_INFORMATION
+HRESULT GetStringValue(IDxDiagContainer* pContainerObject, wchar_t* lpwszName, char* lpszValue, int nValueLength)
 {
-	GUID BootIdentifier;
-	FIRMWARE_TYPE FirmwareType;
-} SYSTEM_BOOT_ENVIRONMENT_INFORMATION, * PSYSTEM_BOOT_ENVIRONMENT_INFORMATION;
+	VARIANT var{};
+	VariantInit(&var);
 
-typedef struct _SYSTEM_SECUREBOOT_INFORMATION
-{
-	BOOLEAN SecureBootEnabled;
-	BOOLEAN SecureBootCapable;
-} SYSTEM_SECUREBOOT_INFORMATION, * PSYSTEM_SECUREBOOT_INFORMATION;
+	HRESULT hr{};
+	if (FAILED(hr = pContainerObject->GetPropA(lpwszName, &var)))
+		return hr;
 
-typedef struct _PROCESSOR_POWER_INFORMATION {
-	ULONG Number;
-	ULONG MaxMhz;
-	ULONG CurrentMhz;
-	ULONG MhzLimit;
-	ULONG MaxIdleState;
-	ULONG CurrentIdleState;
-} PROCESSOR_POWER_INFORMATION, * PPROCESSOR_POWER_INFORMATION;
+	if (var.vt != VT_BSTR)
+		return E_INVALIDARG;
 
+	size_t cbConvSize = 0;
+	wcstombs_s(&cbConvSize, lpszValue, nValueLength, var.bstrVal, SysStringLen(var.bstrVal));
+	lpszValue[nValueLength - 1] = '\0';
 
-std::string CreateTempFileName()
-{
-	char szTempPath[MAX_PATH]{ 0 };
-	GetTempPathA(MAX_PATH, szTempPath);
-
-	char szTempName[MAX_PATH]{ 0 };
-	GetTempFileNameA(szTempPath, "wsc", 1, szTempName);
-
-	return szTempName;
+	VariantClear(&var);
+	return S_OK;
 }
-std::string ReadFileContent(const std::string& stFileName)
+HRESULT GetIntValue(IDxDiagContainer* pContainerObject, wchar_t* lpwszName, int* pnValue)
 {
-	std::ifstream in(stFileName.c_str(), std::ios_base::binary);
-	if (in)
+	VARIANT var{};
+	VariantInit(&var);
+
+	HRESULT hr{};
+	if (FAILED(hr = pContainerObject->GetPropA(lpwszName, &var)))
+		return hr;
+
+	if (var.vt != VT_UI4)
+		return E_INVALIDARG;
+
+	*pnValue = var.ulVal;
+
+	VariantClear(&var);
+	return S_OK;
+}
+
+// Source: https://stackoverflow.com/a/579448
+bool GetMonitorSizeFromEDID(const HKEY hEDIDRegKey, short& WidthMm, short& HeightMm)
+{
+	BYTE EDID[1024];
+	DWORD edidsize = sizeof(EDID);
+
+	const auto lStatus = RegQueryValueExA(hEDIDRegKey, "EDID", nullptr, nullptr, EDID, &edidsize);
+	if (lStatus != ERROR_SUCCESS)
 	{
-		in.exceptions(std::ios_base::badbit | std::ios_base::failbit | std::ios_base::eofbit);
-		return std::string(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+		std::cerr << "RegQueryValueExA(EDID) failed with status: " << std::to_string(lStatus) << std::endl;
+		return false;
 	}
-	return {};
+
+	DWORD p = 8;
+	char model2[9]{ '\0' };
+
+	char byte1 = EDID[p];
+	char byte2 = EDID[p + 1];
+	model2[0] = ((byte1 & 0x7C) >> 2) + 64;
+	model2[1] = ((byte1 & 3) << 3) + ((byte2 & 0xE0) >> 5) + 64;
+	model2[2] = (byte2 & 0x1F) + 64;
+	sprintf_s(model2 + 3, sizeof(model2) - 3, "%X%X%X%X", (EDID[p + 3] & 0xf0) >> 4, EDID[p + 3] & 0xf, (EDID[p + 2] & 0xf0) >> 4, EDID[p + 2] & 0x0f);
+
+	WidthMm = EDID[22];
+	HeightMm = EDID[21];
+	return true;
 }
 
 
@@ -118,7 +126,7 @@ int main(int, char* argv[])
 
 		if (dwProductType == PRODUCT_CLOUD || dwProductType == PRODUCT_CLOUDN)
 		{
-			std::cerr << "SMode does not supported!" << std::endl;
+			std::cerr << "S Mode does not supported!" << std::endl;
 			std::system("PAUSE");
 			return EXIT_FAILURE;
 		}
@@ -172,7 +180,7 @@ int main(int, char* argv[])
 		}
 
 		PROCESSOR_POWER_INFORMATION processorPowerInfo{ 0 };
-		const ULONG ulBufferSize = sizeof(processorPowerInfo) * sysInfo.dwNumberOfProcessors;
+		const auto ulBufferSize = static_cast<ULONG>(sizeof(processorPowerInfo) * sysInfo.dwNumberOfProcessors);
 		const auto lpBuffer = reinterpret_cast<PROCESSOR_POWER_INFORMATION*>(HeapAlloc(hProcHeap, HEAP_ZERO_MEMORY, ulBufferSize));
 		if (!lpBuffer)
 		{
@@ -193,7 +201,7 @@ int main(int, char* argv[])
 		auto nSpeedCheckCounter = 0;
 		for (size_t i = 0; i < sysInfo.dwNumberOfProcessors; ++i)
 		{
-			const auto lpCurrProcessorInfo = *(lpBuffer + i);
+			const auto lpCurrProcessorInfo = *(reinterpret_cast<PROCESSOR_POWER_INFORMATION*>(reinterpret_cast<LPBYTE>(lpBuffer) + (sizeof(processorPowerInfo) * i)));
 			std::cout << "\tProcessor: " << lpCurrProcessorInfo.Number + 1 << " Speed: " << lpCurrProcessorInfo.CurrentMhz << std::endl;
 			if (lpCurrProcessorInfo.CurrentMhz >= 1000)
 			{
@@ -212,20 +220,20 @@ int main(int, char* argv[])
 		const auto dwRevision = sysInfo.wProcessorRevision >> 8;
 		const auto byRevision = LOBYTE(sysInfo.wProcessorRevision);
 
-		int CPUIDINF[4]{ 0 };
-		__cpuid(CPUIDINF, 0);
+		int arCPUID[4]{ 0 };
+		__cpuid(arCPUID, 0);
 
 		std::string stVendor;
-		stVendor += std::string(reinterpret_cast<const char*>(&CPUIDINF[1]), sizeof(CPUIDINF[1]));
-		stVendor += std::string(reinterpret_cast<const char*>(&CPUIDINF[3]), sizeof(CPUIDINF[3]));
-		stVendor += std::string(reinterpret_cast<const char*>(&CPUIDINF[2]), sizeof(CPUIDINF[2]));
+		stVendor += std::string(reinterpret_cast<const char*>(&arCPUID[1]), sizeof(arCPUID[1]));
+		stVendor += std::string(reinterpret_cast<const char*>(&arCPUID[3]), sizeof(arCPUID[3]));
+		stVendor += std::string(reinterpret_cast<const char*>(&arCPUID[2]), sizeof(arCPUID[2]));
 
 		std::cout << "\tProcessor level: " << sysInfo.wProcessorLevel << " revision: " << dwRevision << " " << std::to_string(byRevision) << " vendor: " << stVendor << std::endl;
 
 		// Reversed checks from Windows's tool
 		if (stVendor == "AuthenticAMD")
 		{
-			if (sysInfo.wProcessorLevel < 0x17 || sysInfo.wProcessorLevel == 23 && !((dwRevision - 1) & 0xFFFFFFEF))
+			if (sysInfo.wProcessorLevel < 0x17 || (sysInfo.wProcessorLevel == 23 && !((dwRevision - 1) & 0xFFFFFFEF)))
 			{
 				std::cerr << "Unsupported AMD CPU detected!" << std::endl;
 				std::system("PAUSE");
@@ -270,8 +278,19 @@ int main(int, char* argv[])
 		if (!GetPhysicallyInstalledSystemMemory(&ullTotalyMemory))
 		{
 			std::cerr << "GetPhysicallyInstalledSystemMemory failed with error: " << GetLastError() << std::endl;
-			std::system("PAUSE");
-			return EXIT_FAILURE;
+
+			MEMORYSTATUSEX memInfo{ 0 };
+			memInfo.dwLength = sizeof(memInfo);
+			if (!GlobalMemoryStatusEx(&memInfo))
+			{
+				std::cerr << "GlobalMemoryStatusEx failed with error: " << GetLastError() << std::endl;
+				std::system("PAUSE");
+				return EXIT_FAILURE;
+			}
+			else
+			{
+				ullTotalyMemory = memInfo.ullTotalPhys / 1024;
+			}
 		}
 
 		std::cout << "\tRAM capacity: " << ullTotalyMemory << std::endl;
@@ -290,16 +309,16 @@ int main(int, char* argv[])
 	{
 		std::cout << "Disk checking..." << std::endl;
 
-		char szWinDir[MAX_PATH]{ 0 };
-		const auto nWinDirLength = GetSystemWindowsDirectoryA(szWinDir, sizeof(szWinDir));
-		if (!nWinDirLength)
+		char szWinDir[MAX_PATH]{ '\0' };
+		const auto c_nWinDirLength = GetSystemWindowsDirectoryA(szWinDir, sizeof(szWinDir));
+		if (!c_nWinDirLength)
 		{
 			std::cerr << "GetSystemWindowsDirectoryA failed with error: " << GetLastError() << std::endl;
 			std::system("PAUSE");
 			return EXIT_FAILURE;
 		}
 
-		const auto c_stWinDir = std::string(szWinDir, nWinDirLength);
+		const auto c_stWinDir = std::string(szWinDir, c_nWinDirLength);
 		const auto c_stTargetDev = c_stWinDir.substr(0, 3);
 		std::cout << "\tWindows directory: " << c_stWinDir << " Target device: " << c_stTargetDev << std::endl;
 
@@ -312,6 +331,7 @@ int main(int, char* argv[])
 		}
 
 		const auto c_dwFreeSpaceAsGB = uiTotalNumberOfBytes.QuadPart / 1024 / 1024 / 1024;
+		std::cout << "\tDisk space: " << std::to_string(c_dwFreeSpaceAsGB) << " GB" << std::endl;
 
 		if (c_dwFreeSpaceAsGB < 64)
 		{
@@ -323,7 +343,7 @@ int main(int, char* argv[])
 		std::cout << "Disk check passed!" << std::endl;
 	}
 
-	// 1366x768 resolution
+	// 720p display, 9”, 8 BPC
 	{
 		std::cout << "Resolution checking..." << std::endl;
 
@@ -339,7 +359,7 @@ int main(int, char* argv[])
 		BOOL bHasAvailableMonitor = FALSE;
 		auto OnMonitorEnum = [](HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMonitor, LPARAM dwData) -> BOOL {
 			static auto s_nIdx = 0;
-			const auto pbHasAvailableMonitor = reinterpret_cast<BOOL*>(dwData);
+			const auto c_pbHasAvailableMonitor = reinterpret_cast<BOOL*>(dwData);
 
 			s_nIdx++;
 
@@ -352,18 +372,19 @@ int main(int, char* argv[])
 				return TRUE;
 			}
 
-			const auto nColorDepth = GetDeviceCaps(hdcMonitor, BITSPIXEL) * GetDeviceCaps(hdcMonitor, PLANES);
+			const auto c_nBPC = GetDeviceCaps(hdcMonitor, BITSPIXEL);
+			const auto c_stIsPrimary = (monInfo.dwFlags & MONITORINFOF_PRIMARY) ? "true" : "false";
 
 			std::cout <<
 				"\tMonitor: " << s_nIdx <<
-				" Primary: " << bool(monInfo.dwFlags & MONITORINFOF_PRIMARY) <<
-				" Color depth: " << nColorDepth <<
+				" Primary: " << c_stIsPrimary <<
+				" BPC: " << c_nBPC <<
 				" Resolution: " << monInfo.rcMonitor.right << "x" << monInfo.rcMonitor.bottom <<
 				std::endl;
 
-			if (monInfo.rcMonitor.right > 1366 && monInfo.rcMonitor.bottom > 768 && nColorDepth >= 8)
+			if (monInfo.rcMonitor.bottom >= 720 && c_nBPC >= 8)
 			{
-				*pbHasAvailableMonitor = TRUE;
+				*c_pbHasAvailableMonitor = TRUE;
 				return TRUE;
 			}
 
@@ -386,6 +407,98 @@ int main(int, char* argv[])
 
 		ReleaseDC(nullptr, hDC);
 		std::cout << "Resolution check passed!" << std::endl;
+
+
+		std::cout << "Display devices checking..." << std::endl;
+
+		HKEY hKey{};
+		auto lStatus = RegOpenKeyExA(HKEY_LOCAL_MACHINE, "SYSTEM\\CurrentControlSet\\Enum\\DISPLAY", 0, KEY_ENUMERATE_SUB_KEYS | KEY_QUERY_VALUE, &hKey);
+		if (lStatus == ERROR_SUCCESS)
+		{
+			std::vector <std::string> vDisplayDevList;
+			DWORD dwIndex = 0;
+			while (true)
+			{
+				DWORD dwKeyLen = MAX_PATH;
+				char szNewKeyName[MAX_PATH]{ '\0' };
+
+				lStatus = RegEnumKeyExA(hKey, dwIndex, szNewKeyName, &dwKeyLen, 0, nullptr, nullptr, nullptr);
+				if (ERROR_SUCCESS != lStatus)
+					break;
+
+				if (szNewKeyName[0] != '\0')
+				{
+					std::cout << "\t[" << std::to_string(dwIndex + 1) << "] display device detected: " << szNewKeyName << std::endl;
+					vDisplayDevList.emplace_back(szNewKeyName);
+				}
+				dwIndex++;
+			}
+
+			std::vector <std::string> vDisplayDevRegDir;
+			for (const auto& stDisplayDevice : vDisplayDevList)
+			{
+				const auto stSubKey = "SYSTEM\\CurrentControlSet\\Enum\\DISPLAY\\" + stDisplayDevice;
+
+				HKEY hSubKey{};
+				lStatus = RegOpenKeyExA(HKEY_LOCAL_MACHINE, stSubKey.c_str(), 0, KEY_ENUMERATE_SUB_KEYS | KEY_QUERY_VALUE, &hSubKey);
+				if (lStatus == ERROR_SUCCESS)
+				{
+					while (true)
+					{
+						DWORD dwKeyLen = MAX_PATH;
+						char szNewKeyName[MAX_PATH]{ '\0' };
+
+						lStatus = RegEnumKeyExA(hSubKey, dwIndex, szNewKeyName, &dwKeyLen, 0, nullptr, nullptr, nullptr);
+						if (ERROR_SUCCESS != lStatus)
+							break;
+
+						char szParamPath[512]{ '\0' };
+						sprintf_s(szParamPath, "%s\\%s\\Device Parameters", stSubKey.c_str(), szNewKeyName);
+						vDisplayDevRegDir.emplace_back(szParamPath);
+						dwIndex++;
+					}
+				}
+			}
+
+			auto bHasCompatibleDisplay = false;
+			for (const auto& stDisplayDevRegPath : vDisplayDevRegDir)
+			{
+				HKEY hSubPathKey{};
+				lStatus = RegOpenKeyExA(HKEY_LOCAL_MACHINE, stDisplayDevRegPath.c_str(), 0, KEY_READ | KEY_QUERY_VALUE, &hSubPathKey);
+				if (lStatus == ERROR_SUCCESS)
+				{
+					// Get monitor size as MM
+					short sWidthMM = 0, sHeightMM = 0;
+					if (GetMonitorSizeFromEDID(hSubPathKey, sWidthMM, sHeightMM))
+					{
+						// Convert to diagonal
+						const auto dDisplayMM = sqrt(sWidthMM * sWidthMM + sHeightMM * sHeightMM);
+
+						// MM to inches
+						const auto dDisplayInches = dDisplayMM * 0.393700787;
+
+						// Check size
+						if (dDisplayInches >= 9)
+						{
+							std::cout << "\tAvailable display device with size: " << std::to_string(dDisplayInches) << "” detected!" << std::endl;
+							bHasCompatibleDisplay = true;
+							break;
+						}
+					}
+
+					RegCloseKey(hSubPathKey);
+				}
+			}
+
+			if (!vDisplayDevRegDir.empty() && !bHasCompatibleDisplay)
+			{
+				std::cerr << "9” or greater display device does not exist!" << std::endl;
+				std::system("PAUSE");
+				return EXIT_FAILURE;
+			}
+		}
+
+		std::cout << "Display devices check passed!" << std::endl;
 	}
 
 	// UEFI
@@ -411,7 +524,7 @@ int main(int, char* argv[])
 			return EXIT_FAILURE;
 		}
 
-		std::cout << "\tFirmware type: " << sbei.FirmwareType << std::endl;
+		std::cout << "\tFirmware type: " << GetFirmwareName(sbei.FirmwareType) << std::endl;
 
 		if (sbei.FirmwareType != FirmwareTypeUefi)
 		{
@@ -468,6 +581,8 @@ int main(int, char* argv[])
 			return EXIT_FAILURE;
 		}
 
+		std::cout << "\tTPM module detected! Version: " << std::to_string(tpmDevInfo.tpmVersion) << std::endl;
+
 		if (tpmDevInfo.tpmVersion != 2)
 		{
 			std::cerr << "TPM version: " << tpmDevInfo.tpmVersion << " is less than minimum requirement!" << std::endl;
@@ -478,97 +593,164 @@ int main(int, char* argv[])
 		std::cout << "TPM check passed!" << std::endl;
 	}
 
-	// DirectX 12 
+	// DirectX 12, WDDM 2
 	{
-		std::cout << "DirectX checking..." << std::endl;
+		std::cout << "DirectX/WDDM checking..." << std::endl;
 
-		typedef HRESULT(WINAPI* TD3D11CreateDevice)(
-			IDXGIAdapter* adapter, D3D_DRIVER_TYPE driver_type, HMODULE software, UINT flags, const D3D_FEATURE_LEVEL* feature_levels,
-			UINT num_feature_levels, UINT sdk_version, ID3D11Device** device, D3D_FEATURE_LEVEL* feature_level,
-			ID3D11DeviceContext** immediate_context
-		);
+		DIRECTX_VERSION_INFORMATION dxVerInfo{};
+		std::vector <std::shared_ptr <DISPLAY_DEVICE_INFORMATION>> vDisplayDevices;
 
-		const auto hD3D11 = LoadLibraryA("d3d11.dll");
-		if (!hD3D11)
+		auto bCompleted = false;
+		auto bComInitialized = false;
+		IDxDiagContainer* pObject = nullptr;
+		IDxDiagContainer* pContainer = nullptr;
+		IDxDiagProvider*  pDxDiagProvider = nullptr;
+		IDxDiagContainer* pDxDiagRoot = nullptr;
+		IDxDiagContainer* pDxDiagSystemInfo = nullptr;
+
+		do
 		{
-			std::cerr << "LoadLibraryA(d3d11) failed with error: " << GetLastError() << std::endl;
+			HRESULT hr = CoInitialize(nullptr);
+			bComInitialized = SUCCEEDED(hr);
+
+			hr = CoCreateInstance(CLSID_DxDiagProvider, nullptr, CLSCTX_INPROC_SERVER, IID_IDxDiagProvider, (LPVOID*)&pDxDiagProvider);
+			if (FAILED(hr))
+			{
+				std::cerr << "CoCreateInstance(CLSID_DxDiagProvider) failed with status: " << std::hex << hr << std::endl;
+				break;
+			}
+			if (!pDxDiagProvider)
+			{
+				std::cerr << "CoCreateInstance(CLSID_DxDiagProvider) returned nullptr" << std::endl;
+				hr = E_POINTER;
+				break;
+			}
+
+			DXDIAG_INIT_PARAMS dxDiagInitParam{ 0 };
+			dxDiagInitParam.dwSize = sizeof(dxDiagInitParam);
+			dxDiagInitParam.dwDxDiagHeaderVersion = DXDIAG_DX9_SDK_VERSION;
+			dxDiagInitParam.bAllowWHQLChecks = false;
+			dxDiagInitParam.pReserved = nullptr;
+
+			hr = pDxDiagProvider->Initialize(&dxDiagInitParam);
+			if (FAILED(hr))
+			{
+				std::cerr << "pDxDiagProvider->Initialize failed with status: " << std::hex << hr << std::endl;
+				break;
+			}
+
+			hr = pDxDiagProvider->GetRootContainer(&pDxDiagRoot);
+			if (FAILED(hr))
+			{
+				std::cerr << "pDxDiagProvider->GetRootContainer failed with status: " << std::hex << hr << std::endl;
+				break;
+			}
+
+			if (FAILED(hr = pDxDiagRoot->GetChildContainer(L"DxDiag_DisplayDevices", &pContainer)))
+			{
+				std::cerr << "pDxDiagRoot->GetChildContainer(DxDiag_DisplayDevices) failed with status: " << std::hex << hr << std::endl;
+				break;
+			}
+
+			DWORD dwInstanceCount = 0;
+			if (FAILED(hr = pContainer->GetNumberOfChildContainers(&dwInstanceCount)))
+			{
+				std::cerr << "pContainer->GetNumberOfChildContainers failed with status: " << std::hex << hr << std::endl;
+				break;
+			}
+
+			std::cout << "\t" << std::to_string(dwInstanceCount) << " instance found!" << std::endl;
+
+			// Display devices
+			for (DWORD i = 0; i < dwInstanceCount; i++)
+			{
+				const auto devInfo = std::make_shared<DISPLAY_DEVICE_INFORMATION>();
+
+				wchar_t wszContainer[256]{ L'\0' };
+				hr = pContainer->EnumChildContainerNames(i, wszContainer, 256);
+				if (FAILED(hr))
+				{
+					std::cerr << "pContainer->EnumChildContainerNames failed with status: " << std::hex << hr << std::endl;
+					break;
+				}
+
+				hr = pContainer->GetChildContainer(wszContainer, &pObject);
+				if (FAILED(hr) || !pObject)
+				{
+					std::cerr << "pContainer->GetChildContainer failed with status: " << std::hex << hr << std::endl;
+					break;
+				}
+
+				if (FAILED(hr = GetStringValue(pObject, L"szDescription", devInfo->szDescription, _countof(devInfo->szDescription))))
+				{
+					std::cerr << "GetStringValue(szDescription) failed with status: " << std::hex << hr << std::endl;
+					break;
+				}
+
+				if (FAILED(hr = GetStringValue(pObject, L"szDriverModelEnglish", devInfo->szDriverModel, _countof(devInfo->szDriverModel))))
+				{
+					std::cerr << "GetStringValue(szDriverModelEnglish) failed with status: " << std::hex << hr << std::endl;
+					break;
+				}
+
+				std::cout << "\tDevice index: " << std::to_string(i + 1) << " Description: " << devInfo->szDescription << " Model: " << devInfo->szDriverModel << std::endl;
+
+				vDisplayDevices.emplace_back(devInfo);
+				SAFE_RELEASE(pObject);
+			}
+
+			// DirectX
+			if (FAILED(hr = pDxDiagRoot->GetChildContainer(L"DxDiag_SystemInfo", &pDxDiagSystemInfo)))
+				break;
+
+			if (FAILED(hr = GetIntValue(pDxDiagSystemInfo, L"dwDirectXVersionMajor", &dxVerInfo.nMajorVersion)))
+				break;
+
+			if (FAILED(hr = GetIntValue(pDxDiagSystemInfo, L"dwDirectXVersionMinor", &dxVerInfo.nMinorVersion)))
+				break;
+
+			bCompleted = true;
+		} while (FALSE);
+
+		SAFE_RELEASE(pObject);
+		SAFE_RELEASE(pContainer);
+		SAFE_RELEASE(pDxDiagSystemInfo);
+		SAFE_RELEASE(pDxDiagRoot);
+		SAFE_RELEASE(pDxDiagProvider);
+
+		if (bComInitialized)
+			CoUninitialize();
+
+		if (!bCompleted)
+		{
+			std::cerr << "DirectX/WDDM check failed!" << std::endl;
 			std::system("PAUSE");
 			return EXIT_FAILURE;
 		}
 
-		const auto D3D11CreateDevice = reinterpret_cast<TD3D11CreateDevice>(GetProcAddress(hD3D11, "D3D11CreateDevice"));
-		if (!D3D11CreateDevice)
+		if (dxVerInfo.nMajorVersion < 12)
 		{
-			std::cerr << "GetProcAddress(D3D11CreateDevice) failed with error: " << GetLastError() << std::endl;
+			std::cerr << "System DirectX version: " << std::to_string(dxVerInfo.nMajorVersion) << " lower than 12!" << std::endl;
 			std::system("PAUSE");
 			return EXIT_FAILURE;
 		}
 
-		static const D3D_FEATURE_LEVEL d3d_feature_levels[] = {
-			D3D_FEATURE_LEVEL_12_1,
-			D3D_FEATURE_LEVEL_12_0,
-			D3D_FEATURE_LEVEL_11_1,
-			D3D_FEATURE_LEVEL_11_0
-		};
-
-		D3D_FEATURE_LEVEL d3dFeatureLevel{};
-		ID3D11Device* pD3d11Device = nullptr;
-		ID3D11DeviceContext* pD3d11DeviceCtx = nullptr;
-		const auto hResult = D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, 0, d3d_feature_levels, _countof(d3d_feature_levels),
-			D3D11_SDK_VERSION, &pD3d11Device, &d3dFeatureLevel, &pD3d11DeviceCtx
-		);
-		if (FAILED(hResult))
+		for (const auto& spDeviceInfo : vDisplayDevices)
 		{
-			std::cerr << "D3D11CreateDevice failed with status: " << std::hex << hResult << std::endl;
-			std::system("PAUSE");
-			return EXIT_FAILURE;
+			if (spDeviceInfo)
+			{
+				const std::string c_stModelInfo = spDeviceInfo->szDriverModel;
+				if (c_stModelInfo.find("WDDM 2") == std::string::npos &&
+					c_stModelInfo.find("WDDM 3") == std::string::npos)
+				{
+					std::cerr << "WDDM 2/3 is not found in dxdiag config!" << std::endl;
+					std::system("PAUSE");
+					return EXIT_FAILURE;
+				}
+			}
 		}
 
-		if (d3dFeatureLevel < D3D_FEATURE_LEVEL_12_0)
-		{
-			std::cerr << "DirectX 12 compability check failed! Feature level: " << std::to_string(d3dFeatureLevel) << std::endl;
-			std::system("PAUSE");
-			return EXIT_FAILURE;
-		}
-
-		std::cout << "DirectX check passed!" << std::endl;
-	}
-
-	// WDDM 2.X 
-	{
-		std::cout << "WDDM checking..." << std::endl;
-
-		const auto c_stTempFileName = CreateTempFileName();
-		const auto c_stCommand = "dxdiag /t " + c_stTempFileName;
-
-		std::cout << "\tDxdiag output filename: " << c_stTempFileName << std::endl;
-
-		const auto nDxdiagExitCode = std::system(c_stCommand.c_str());
-
-		if (nDxdiagExitCode)
-		{
-			std::cerr << "dxdiag process execute failed with exit code: " << nDxdiagExitCode << std::endl;
-			std::system("PAUSE");
-			return EXIT_FAILURE;
-		}
-
-		const auto c_stFileBuffer = ReadFileContent(c_stTempFileName);
-		if (c_stFileBuffer.empty())
-		{
-			std::cerr << "dxdiag output file read failed with " << errno << std::endl;
-			std::system("PAUSE");
-			return EXIT_FAILURE;
-		}
-
-		if (c_stFileBuffer.find("Driver Model: WDDM 2") == std::string::npos &&
-			c_stFileBuffer.find("Driver Model: WDDM 3") == std::string::npos)
-		{
-			std::cerr << "WDDM 2/3 is not found in dxdiag config!" << std::endl;
-			std::system("PAUSE");
-			return EXIT_FAILURE;
-		}
-
-		std::cout << "WDDM check passed!" << std::endl;
+		std::cout << "DirectX/WDDM check passed!" << std::endl;
 	}
 
 	// Internet connection

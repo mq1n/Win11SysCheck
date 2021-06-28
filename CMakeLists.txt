@@ -32,7 +32,8 @@ if(MSVC)
 endif()
 
 add_executable (${PROJECT_NAME}
+    include/main.h
     src/main.cpp
 )
 
-target_link_libraries(${PROJECT_NAME} PowrProf WinInet Tbs)
+target_link_libraries(${PROJECT_NAME} dxguid PowrProf WinInet Tbs)
