@@ -245,7 +245,7 @@ int main(int, char* argv[])
 			if (sysInfo.wProcessorLevel == 6)
 			{
 				if ((dwRevision < 0x5F && dwRevision != 85) ||
-					(dwRevision == 142 && byRevision == 9) ||
+//					(dwRevision == 142 && byRevision == 9) ||
 					(dwRevision == 158 && byRevision == 9))
 				{
 					std::cerr << "Unsupported Intel CPU detected!" << std::endl;
@@ -343,7 +343,7 @@ int main(int, char* argv[])
 		std::cout << "Disk check passed!" << std::endl;
 	}
 
-	// 720p display, 9”, 8 BPC
+	// 720p display, 9Â”, 8 BPC
 	{
 		std::cout << "Resolution checking..." << std::endl;
 
@@ -480,7 +480,7 @@ int main(int, char* argv[])
 						// Check size
 						if (dDisplayInches >= 9)
 						{
-							std::cout << "\tAvailable display device with size: " << std::to_string(dDisplayInches) << "” detected!" << std::endl;
+							std::cout << "\tAvailable display device with size: " << std::to_string(dDisplayInches) << "Â” detected!" << std::endl;
 							bHasCompatibleDisplay = true;
 							break;
 						}
@@ -492,7 +492,7 @@ int main(int, char* argv[])
 
 			if (!vDisplayDevRegDir.empty() && !bHasCompatibleDisplay)
 			{
-				std::cerr << "9” or greater display device does not exist!" << std::endl;
+				std::cerr << "9Â” or greater display device does not exist!" << std::endl;
 				std::system("PAUSE");
 				return EXIT_FAILURE;
 			}
