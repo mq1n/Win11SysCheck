@@ -492,7 +492,7 @@ namespace Win11SysCheck
 			if (sysInfo.wProcessorLevel == 6)
 			{
 				if ((nProcessorModel < 0x5F && nProcessorModel != 85) ||
-					(nProcessorModel == 142 && byProcessorStepping == 9) ||
+//					(nProcessorModel == 142 && byProcessorStepping == 9) ||
 					(nProcessorModel == 158 && byProcessorStepping == 9))
 				{
 					CLogHelper::Instance().Log(LL_ERR, "Unsupported Intel CPU detected!");
