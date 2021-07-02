@@ -1,0 +1,39 @@
+name: build
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+
+  windows:
+    strategy:
+      matrix:
+        os: [windows-2019]
+        include:
+          - os: windows-2019
+            generator: Visual Studio 16 2019
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - uses: actions/checkout@v1
+      with:
+        token: ${{ secrets.ACCESS_TOKEN }}
+    - name: Compile tests
+      working-directory: build
+      run: |
+        cmake .. -A x64 -DCMAKE_CXX_FLAGS=/W1 -G"${{ matrix.generator }}"
+        cmake --build . -j 6
+    - name: Collect outputs
+      run: |
+        mkdir _output
+        mkdir _output\\I18n
+        copy Bin\\*.exe _output
+        copy Bin\\I18n\\*.json _output\\I18n
+    - name: Upload
+      uses: actions/upload-artifact@v1
+      with:
+        name: output
+        path: _output

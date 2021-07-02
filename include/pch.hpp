@@ -45,6 +45,9 @@ using namespace rapidjson;
 #define SystemBootEnvironmentInformation 90
 #define SystemSecureBootInformation 145
 #define SAFE_RELEASE(p)  { if(p) { (p)->Release(); (p)=NULL; } }
+#ifndef PF_ARM_V81_ATOMIC_INSTRUCTIONS_AVAILABLE
+#define PF_ARM_V81_ATOMIC_INSTRUCTIONS_AVAILABLE    34   
+#endif
 
 typedef struct _SYSTEM_BOOT_ENVIRONMENT_INFORMATION
 {

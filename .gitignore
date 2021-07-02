@@ -25,6 +25,8 @@
 *.la
 *.a
 *.lib
+!/extern/d3d9/lib_x86/*.lib
+!/extern/d3d9/lib_x64/*.lib
 
 # Executables
 *.exe
@@ -33,7 +35,8 @@
 
 # Project folders
 /.vs_proj
-/build
+/build/*
+!/build/.gitkeep
 
 # Debug symbols
 *.pdb
