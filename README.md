@@ -1,4 +1,4 @@
-[![Build Status](https://img.shields.io/github/workflow/status/mq1n/Win11SysCheck/wnw11)](https://github.com/mq1n/Win11SysCheck/actions?query=workflow%3AWNW11)
+[![Build Status](https://img.shields.io/github/workflow/status/mq1n/Win11SysCheck/build)](https://github.com/mq1n/Win11SysCheck/actions)
 [![Download](https://img.shields.io/github/v/release/mq1n/Win11SysCheck)](https://github.com/mq1n/Win11SysCheck/releases/latest/)
 [![Ko-fi](https://img.shields.io/badge/Support%20me%20on-Ko--fi-FF5E5B.svg?logo=ko-fi)](https://ko-fi.com/mq1n4)
 
