@@ -1,0 +1,54 @@
+{
+	// Common
+	"1": {
+		"1": "Unknown",
+		"2": "Initializing...",
+		"3": "Compatible!",
+		"4": "NOT Compatible!",
+		"5": "Status",
+		"6": "Details",
+		"7": "Export",
+		"8": "Dark Mode",
+		"9": "Capable",
+		"10": "Enabled",
+		"11": "disabled",
+		"12": "Version",
+		"13": "Build",
+		"14": "Result",
+		"15": "System can upgradable to Windows 11",
+		"16": "System can NOT upgradable to Windows 11",
+		"17": "Result data succesfully exported to: %s",
+		"18": "Result data export failed!",
+		"19": "# More on Windows 11",
+		"20": "# System specifications",
+		"21": "\t> Supported CPU List:"
+	},
+	// Menu
+	"2": {
+		"1": "Summary",
+		"2": "OS",
+		"3": "Boot",
+		"4": "CPU",
+		"5": "RAM",
+		"6": "Disk",
+		"7": "Display",
+		"8": "Internet"
+	},
+	// System details
+	"3": {
+		"1": "OS Version",
+		"2": "OS Service pack",
+		"3": "OS Build",
+		"4": "OS Platform",
+		"5": "OS Product Type",
+		"6": "Boot Firmware",
+		"7": "Secure Boot status",
+		"8": "TPM",
+		"9": "Processor name",
+		"10": "Processor details",
+		"11": "Processor architecture",
+		"12": "Active processor count",
+		"13": "Processor count",
+		"14": "Total Memory"
+	}
+}

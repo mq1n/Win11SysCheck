@@ -37,3 +37,8 @@
 
 # Debug symbols
 *.pdb
+
+# Config/Log files
+*.cfg
+*.ini
+*.log
