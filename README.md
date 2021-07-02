@@ -5,8 +5,13 @@
 # Win11SysCheck
 Windows 11 compability check software with user friendly output
 
-* NOTE: GUI available as experimental release in [experimental_ui branch](https://github.com/mq1n/Win11SysCheck/tree/experimental_ui)
-![image](assets/preview.gif)
+![image](assets/preview.png)
+<details>
+    <summary>
+        GUI available as experimental release in <a href="https://github.com/mq1n/Win11SysCheck/tree/experimental_ui">experimental_ui branch</a>
+    </summary>
+    <img src="assets/preview.gif">  
+</details>
 
 ----
 
