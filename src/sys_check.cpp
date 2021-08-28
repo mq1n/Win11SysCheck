@@ -417,22 +417,33 @@ namespace Win11SysCheck
 		int arCPUID[4]{ 0 };
 		__cpuid(arCPUID, 0);
 
-		std::string stVendor;
+		std::string stVendor{};
 		stVendor += std::string(reinterpret_cast<const char*>(&arCPUID[1]), sizeof(arCPUID[1]));
 		stVendor += std::string(reinterpret_cast<const char*>(&arCPUID[3]), sizeof(arCPUID[3]));
 		stVendor += std::string(reinterpret_cast<const char*>(&arCPUID[2]), sizeof(arCPUID[2]));
 
-		std::string stProcessorName;
+		std::string stProcessorName{};
+		DWORD dwPlatformSpecField = 0;
 		HKEY hKey{ 0 };
 		if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, "HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0", 0, KEY_READ, &hKey) == ERROR_SUCCESS)
 		{
 			DWORD dwType = REG_SZ;
 			char szBuffer[512]{ '\0' };
 			DWORD cbSize = 512;
-			if (RegQueryValueExA(hKey, "ProcessorNameString", nullptr, &dwType, (PBYTE)(szBuffer), &cbSize) == ERROR_SUCCESS)
+			if (RegQueryValueExA(hKey, "ProcessorNameString", nullptr, &dwType, (PBYTE)(&szBuffer), &cbSize) == ERROR_SUCCESS)
 			{
 				stProcessorName = szBuffer;
 			}
+
+			dwType = REG_DWORD;
+			cbSize = sizeof(dwPlatformSpecField);
+			const auto lStatus = RegQueryValueExA(hKey, "Platform Specific Field 1", nullptr, &dwType, (PBYTE)(&dwPlatformSpecField), &cbSize);
+			if (lStatus != ERROR_SUCCESS)
+			{
+				CLogHelper::Instance().Log(LL_ERR, fmt::format("RegQueryValueExA(Platform Specific Field 1) failed with status: {0}", lStatus));
+				return bRet;
+			}
+
 			RegCloseKey(hKey);
 		}
 
@@ -452,7 +463,7 @@ namespace Win11SysCheck
 			return bRet;
 		}
 
-		const auto lStatus = CallNtPowerInformation(ProcessorInformation, nullptr, 0, lpBuffer, ulBufferSize);
+		auto lStatus = CallNtPowerInformation(ProcessorInformation, nullptr, 0, lpBuffer, ulBufferSize);
 		if (lStatus != STATUS_SUCCESS)
 		{
 			HeapFree(hProcHeap, 0, lpBuffer);
@@ -477,6 +488,8 @@ namespace Win11SysCheck
 			sysInfo.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_ARM64;
 
 		auto bIsSupportedCPU = true;
+		auto qwAtomicSuppVal = 0ull;
+		DWORD qwAtomicSuppValSize = sizeof(qwAtomicSuppVal);
 
 		// Reversed checks from Windows's tool
 		if (stVendor == "AuthenticAMD")
@@ -491,9 +504,28 @@ namespace Win11SysCheck
 		{
 			if (sysInfo.wProcessorLevel == 6)
 			{
-				if ((nProcessorModel < 0x5F && nProcessorModel != 85) ||
-//					(nProcessorModel == 142 && byProcessorStepping == 9) ||
-					(nProcessorModel == 158 && byProcessorStepping == 9))
+				if (nProcessorModel > 0x5F)
+				{
+					if (nProcessorModel == 142)
+					{
+						if (byProcessorStepping != 9)
+						{
+							CLogHelper::Instance().Log(LL_ERR, "Unsupported Intel CPU detected!");
+							bIsSupportedCPU = false;
+						}
+						if (dwPlatformSpecField != 16)
+						{
+							CLogHelper::Instance().Log(LL_ERR, "Unsupported Intel CPU detected!");
+							bIsSupportedCPU = false;
+						}
+					}
+					if (nProcessorModel != 158 || byProcessorStepping != 9 || dwPlatformSpecField == 8)
+					{
+						CLogHelper::Instance().Log(LL_ERR, "Unsupported Intel CPU detected!");
+						bIsSupportedCPU = false;
+					}
+				}
+				if (nProcessorModel != 85)
 				{
 					CLogHelper::Instance().Log(LL_ERR, "Unsupported Intel CPU detected!");
 					bIsSupportedCPU = false;
@@ -510,7 +542,16 @@ namespace Win11SysCheck
 			CLogHelper::Instance().Log(LL_ERR, "Unsupported Qualcomm CPU detected!");
 			bIsSupportedCPU = false;
 		}
-
+		else if (lStatus = RegGetValueA(HKEY_LOCAL_MACHINE, "Hardware\\Description\\System\\CentralProcessor\\0", "CP 4030", RRF_RT_REG_QWORD, 0, &qwAtomicSuppVal, &qwAtomicSuppValSize) != ERROR_SUCCESS)
+		{
+			CLogHelper::Instance().Log(LL_ERR, fmt::format("Atomic support registry read failed with status: {0}", lStatus));
+			bIsSupportedCPU = false;
+		}
+		else if ((unsigned int)(qwAtomicSuppVal >> 20) & 0xF < 2)
+		{
+			CLogHelper::Instance().Log(LL_ERR, fmt::format("Qualcomm CPU family check failed, atomicsResult: {0}", (unsigned int)(qwAtomicSuppVal >> 20) & 0xF));
+			bIsSupportedCPU = false;
+		}
 
 		SSystemDetails sysDetails{};
 		const auto stIconText = CApplication::Instance().GetUI()->GetMenuTypeIconText(nType);
